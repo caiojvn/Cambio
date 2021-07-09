@@ -1,2 +1,2 @@
 # Cambio
-Análise do câmbio comercial
+Análise preditiva do comportamento do câmbio comercial.
