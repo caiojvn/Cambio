@@ -54,46 +54,45 @@ summary(seastests::wo(Dados$Compra[Dados$Data>'2019-01-01'], freq = 365)) # Não
 library(ggplot2)
 
 ggplot(Dados[Dados$Data>tail(Dados$Data,30)[1],])+theme_minimal()+theme(aspect.ratio = 2/4)+
-  geom_line(aes(x=Data, y=Compra, colour='Valor nominal'))+labs(y='Dólar (R$)')+
-  geom_line(aes(x=Data, y=MMS_Compra, colour='Média móvel - 7 dias'), alpha=0.5, size=1)+
-  scale_color_manual(values = c('Valor nominal'='black', 'Média móvel - 7 dias'='steelblue'))
+  geom_line(aes(x=Data, y=Compra, colour='Valor nominal'))+labs(y='Dolar (R$)')+
+  geom_line(aes(x=Data, y=MMS_Compra, colour='Media movel - 7 dias'), alpha=0.5, size=1)+
+  scale_color_manual(values = c('Valor nominal'='black', 'Media movel - 7 dias'='steelblue'))
 ###
 
 
-### PREVISÃO M: Prophet
+### PREVISAO M: Prophet
 
 library(prophet)
 
+#
+remove(Dados2000)
+Dados2020 <- Dados[Dados$Data>'2020-01-01',]
 
+train_dt2020 <- Dados2020[1:(nrow(Dados2020)*2/3),]
+test_dt2020 <- Dados2020[-(1:(nrow(Dados2020)*1/3)),]
 
-m.forecast %>% 
-  select(ds, holidays) %>% 
-  filter(abs(holidays) > 0) %>% plot(type='l')
+#
 
-prophet_plot_components(m, m.forecast)
+m.prophet <- data.frame(ds=Dados2020$Data[Dados2020$Data<(max(Dados2020$Data)-(periodo+3))], 
+                        y=Dados2020$Compra[Dados2020$Data<(max(Dados2020$Data)-(periodo+3))])
 
-m.prophet <- data.frame(ds=Dados$Data[Dados$Data>'2020-01-01' & 
-                                        Dados$Data<(max(Dados$Data)-(periodo+3))], 
-                        y=Dados$Compra[Dados$Data>'2020-01-01' & 
-                                         Dados$Data<(max(Dados$Data)-(periodo+3))])
-
-changepoint.m <- unique(calendario %>% filter(Impact==c("HIGH", "MEDIUM")) %>% select(Start))
+changepoint.m <- unique(calendario %>% filter(Impact==c("HIGH", "MEDIUM")) %>% select(Start)) 
 changepoint.m <- changepoint.m$Start[changepoint.m$Start>=min(m.prophet$ds) & 
-                                 changepoint.m$Start<=max(m.prophet$ds)]
+                                       changepoint.m$Start<=max(m.prophet$ds)]
 
 
 holid.br <- as.Date(c('2020-01-01', '2020-02-24', '2020-02-25', '2020-04-10', '2020-04-21',
-                   '2020-05-01', '2020-06-11', '2020-07-09','2020-01-01', '2020-09-07', 
-                   '2020-10-12', '2020-11-02', '2020-11-20', '2020-12-24', '2020-12-25', 
-                   '2020-12-31', '2021-01-01', '2021-01-25', '2021-02-15', '2021-02-16', 
-                   '2021-02-17', '2021-03-02', '2021-03-21', '2021-06-03', '2021-07-09', 
-                   '2021-09-07', '2021-10-12', '2021-11-02', '2021-11-15', '2021-12-22',
-                   '2021-12-23', '2021-12-29', '2021-12-30', '2021-12-31'))
+                      '2020-05-01', '2020-06-11', '2020-07-09','2020-01-01', '2020-09-07', 
+                      '2020-10-12', '2020-11-02', '2020-11-20', '2020-12-24', '2020-12-25', 
+                      '2020-12-31', '2021-01-01', '2021-01-25', '2021-02-15', '2021-02-16', 
+                      '2021-02-17', '2021-03-02', '2021-03-21', '2021-06-03', '2021-07-09', 
+                      '2021-09-07', '2021-10-12', '2021-11-02', '2021-11-15', '2021-12-22',
+                      '2021-12-23', '2021-12-29', '2021-12-30', '2021-12-31'))
 
 holid.br <- data.frame(holiday='feriado Brasil',
-                    ds=holid.br,
-                    lower_window=0,
-                    upper_window=1)
+                       ds=holid.br,
+                       lower_window=0,
+                       upper_window=1)
 
 
 holid.eua <- as.Date(c('2020-01-01', '2020-01-20', '2020-02-17', '2020-05-25', '2020-07-03',
@@ -102,9 +101,9 @@ holid.eua <- as.Date(c('2020-01-01', '2020-01-20', '2020-02-17', '2020-05-25', '
                        '2021-07-05', '2021-09-06', '2021-10-11', '2021-11-11', '2021-11-25',
                        '2021-12-24'))
 holid.eua <- data.frame(holiday='feriado EUA',
-                    ds=holid.eua,
-                    lower_window=0,
-                    upper_window=1)
+                        ds=holid.eua,
+                        lower_window=0,
+                        upper_window=1)
 
 holid <- arrange(rbind(holid.br, holid.eua), ds)
 holid
@@ -112,13 +111,13 @@ holid
 m <- prophet(m.prophet, growth = 'linear', 
              changepoints = changepoint.m, changepoint.prior.scale = 0.8, holidays=holid,
              mcmc.samples = 0, interval.width = 0.95,
-             yearly.seasonality = TRUE, weekly.seasonality = FALSE, 
+             yearly.seasonality = FALSE, weekly.seasonality = FALSE, 
              daily.seasonality = FALSE)
 m.future <- make_future_dataframe(m, period=periodo)
 m.forecast <- predict(m, m.future)
 
 previsao_m <- tail(m.forecast[c('ds', 'yhat', 'yhat_lower', 'yhat_upper')], periodo)
-colnames(previsao_m) <- c('Data', 'Previsão', 'Mínimo', 'Máximo')
+colnames(previsao_m) <- c('Data', 'Previsão', 'Minimo', 'Maximo')
 rownames(previsao_m) <- 1:periodo
 
 
@@ -135,35 +134,44 @@ previsao_m
 ### Gráfico da previsão m
 ggplot(prophet:::df_for_plotting(m, m.forecast), aes(x=ds, y=y))+
   theme_minimal()+theme(aspect.ratio = 2/4)+
-  labs(caption = 'Intervalo de confiança: 95%', y = 'Dólar (R$)', x = 'Data')+geom_line(na.rm=TRUE)+
+  labs(caption = 'Intervalo de confianca: 95%', y = 'Dolar (R$)', x = 'Data')+geom_line(na.rm=TRUE)+
   geom_line(aes(y=yhat), color = "deeppink3", na.rm = TRUE, size=1, alpha=0.5)+ 
   geom_ribbon(ggplot2::aes(ymin = yhat_lower, ymax = yhat_upper), alpha = 0.1, 
               fill = "deepskyblue4", na.rm = TRUE)
-  
-  #
 
-df.prevbasica <- data.frame(Data = Dados$Data[Dados$Data>'2020-01-01'],
-                Dolar = Dados$Compra[Dados$Data>'2020-01-01'],
-                Previsao = m.forecast$yhat)
+
+#
 
 p <- 30
 
-ggplot(df.prevbasica, aes(x=Data))+geom_line(aes(y= Dolar))+
+df.prevbasica <- data.frame(Data = Dados2020$Data,
+                            Dolar = Dados2020$Compra,
+                            Previsao = m.forecast$yhat,
+                            yhat_lower = m.forecast$yhat_lower,
+                            yhat_upper = m.forecast$yhat_upper)
+df.prevbasica <- df.prevbasica %>% filter(Data>=max(Dados$Data)-p, Data<=max(Dados$Data))
+
+library(gganimate)
+
+anim1 <- ggplot(df.prevbasica, aes(x=Data))+geom_line(aes(y= Dolar))+
   xlim(max(Dados$Data)-p,max(Dados$Data))+
   ylim(tail(m.forecast$yhat_lower, p) %>% min,tail(m.forecast$yhat_upper, p) %>% max)+
   theme_minimal()+
-  labs(caption = 'Intervalo de confiança: 95%', y = 'Dólar (R$)', x = 'Data')+
-  geom_line(aes(y= Previsao), col="slategray4", alpha=0.5, size=1)+geom_line(aes(y=Dolar))+
-  geom_ribbon(data=m.forecast, aes(ymin = yhat_lower, ymax = yhat_upper, x=df.prevbasica$Data), 
+  labs(caption = 'Intervalo de confianca: 95%', y = 'Dolar (R$)', x = 'Data')+
+  geom_line(aes(y= Previsao), color='slategray4', alpha=0.5, size=1)+geom_line(aes(y=Dolar))+
+  geom_ribbon(aes(ymin = yhat_lower, ymax = yhat_upper, x=Data), 
               alpha = 0.1, fill = "deepskyblue4", na.rm = TRUE)+
   geom_segment(data=df.prevbasica[df.prevbasica$Data>max(Dados$Data)-(periodo+4),], 
-               aes(y=Dolar, yend= Previsao, xend=Data), col='slateblue', 
+               aes(y=Dolar, group=Data, yend= Previsao, xend=Data), col='slateblue', 
                linetype=2, alpha=0.75)+
   geom_point(data=df.prevbasica[df.prevbasica$Data>max(Dados$Data)-(periodo+4),], 
-             aes(y=Dolar), col='slateblue',alpha=0.75, size=2)
+             aes(y=Dolar, group=Data), col='slateblue',alpha=0.75, size=2)+
+  transition_reveal(Data)+
+  shadow_mark(alpha = 0.005)
 
+animate(anim1)
 
-### Precisão da previsão
+### Precisao da previsao
 
 intseq <- zoo::as.Date(intersect(ultimos_dias$Data,previsao_m$Data))
 
@@ -172,33 +180,30 @@ valorreal <- ultimos_dias$Compra[ultimos_dias$Data>=intseq[1] & ultimos_dias$Dat
 prevy <- previsao_m$Previsão[previsao_m$Data>=intseq[1] & previsao_m$Data<=intseq[length(intseq)]]
 erpad.y <- (valorreal-prevy)/valorreal
 
-prevmin <- previsao_m$Mínimo[previsao_m$Data>=intseq[1] & previsao_m$Data<=intseq[length(intseq)]]
+prevmin <- previsao_m$Minimo[previsao_m$Data>=intseq[1] & previsao_m$Data<=intseq[length(intseq)]]
 erpad.min <- (valorreal-prevmin)/valorreal
 
-prevmax <- previsao_m$Máximo[previsao_m$Data>=intseq[1] & previsao_m$Data<=intseq[length(intseq)]]
+prevmax <- previsao_m$Miximo[previsao_m$Data>=intseq[1] & previsao_m$Data<=intseq[length(intseq)]]
 erpad.max <- (valorreal-prevmax)/valorreal
 
 
-df.accuracy <- data.frame(Data= intseq, Dolar=valorreal, Previsão=round(prevy,4) ,
+df.accuracy <- data.frame(Data= intseq, Dolar=valorreal, Previsao=round(prevy,4) ,
                           `ErroPerc_Previsão` = paste(round(erpad.y*100,3), '%', sep='')
-                          #, Mínimo=prevmin 
-                          #,`ErroPerc_mínimo` = erpad.min*100
-                          #,Máximo=prevmax
-                          #,`ErroPerc_máximo` = erpad.max*100 
+                          #, Minimo=prevmin 
+                          #,`ErroPerc_minimo` = erpad.min*100
+                          #,Maximo=prevmax
+                          #,`ErroPerc_maximo` = erpad.max*100 
 )
 
-rmse <- Metrics::rmse(df.accuracy$Dolar, df.accuracy$Previsão)
-mape <- Metrics::mape(valorreal, prevy)*100
-precisao <- list(RMSE=rmse, MPE=mean(erpad.y*100), MAPE=mape, Tabela=df.accuracy)
-
-precisao
+precisao <- list(aTSA::accurate(df.accuracy$Dolar, df.accuracy$Previsão, k=2), Tabela=df.accuracy)
 
 
- ### (NOVA) PREVISÃO N: Prophet
+
+### (NOVA) PREVISAO N: Prophet
 
 
-n.prophet <- data.frame(ds=Dados$Data[Dados$Data>'2020-01-01'], 
-                        y=Dados$Compra[Dados$Data>'2020-01-01'])
+n.prophet <- data.frame(ds=Dados2020$Data, 
+                        y=Dados2020$Compra)
 
 changepoint.n <- calendario$Start
 changepoint.n <- changepoint.n[changepoint.n>=min(n.prophet$ds) & 
@@ -216,7 +221,7 @@ n.forecast <- predict(n, n.future)
 
 previsao_n <- tail(n.forecast[c('ds', 'yhat', 'yhat_lower', 'yhat_upper')], periodo)
 previsao_n[-1] <- round(previsao_n[,-1],4)
-colnames(previsao_n) <- c('Data', 'Previsão', 'Mínimo', 'Máximo')
+colnames(previsao_n) <- c('Data', 'Previsao', 'Minimo', 'Maximo')
 rownames(previsao_n) <- 1:periodo
 
 Data_futura <- timeSequence(from=as.Date(previsao_n$Data[1]), 
@@ -228,10 +233,16 @@ previsao_n$Data <- as.Date(Data_futura)
 previsao_n
 
 ### Gráfico da previsão
-ggplot(prophet:::df_for_plotting(n, n.forecast), aes(x=ds, y=y))+
+
+df.prev_n <- prophet:::df_for_plotting(n, n.forecast)
+df.prev_n$ds <- as.Date(df.prev_n$ds)
+
+ggplot(df.prev_n, aes(x=ds, y=y))+
+  xlim(max(df.prev_n$ds)-p*6,
+       max(df.prev_n$ds))+
+  ylim(tail(df.prev_n$yhat_lower, p*6) %>% min,tail(df.prev_n$yhat_upper, p*6) %>% max)+
   theme_minimal()+theme(aspect.ratio = 2/4)+
-  xlim(as.Date("2021-06-11"),as.Date("2021-07-11"))+
-  labs(caption = 'Intervalo de confiança: 95%', y = 'Dólar (R$)', x = 'Data')+geom_line(na.rm=TRUE)+
+  labs(caption = 'Intervalo de confianca: 95%', y = 'Dolar (R$)', x = 'Data')+geom_line(na.rm=TRUE)+
   geom_line(aes(y=yhat), color = "slategray4", na.rm = TRUE, size=1.5, alpha=0.5)+ 
   geom_ribbon(ggplot2::aes(ymin = yhat_lower, ymax = yhat_upper), alpha = 0.1, 
               fill = "deepskyblue4", na.rm = TRUE)
@@ -241,3 +252,50 @@ plot(n, n.forecast)
 prophet_plot_components(n, n.forecast)
 
 ###
+
+
+### [RETROPECTO] Previsao para variacao
+
+o.prophet <- data.frame(ds=Dados2000$Data[Dados2000$Data<(max(Dados2000$Data)-(periodo+3))], 
+                        y=Dados2000$Variacao_Compra[Dados2000$Data<(max(Dados2000$Data)-(periodo+3))])
+
+changepoint.o <- calendario$Start
+changepoint.o <- changepoint.o[changepoint.o>=min(o.prophet$ds) & 
+                                 changepoint.o<=max(o.prophet$ds)] %>% unique
+
+
+
+o <- prophet(o.prophet, growth = 'linear', 
+             changepoints = changepoint.o, changepoint.range = 0.9,
+             mcmc.samples = 0, interval.width = 0.95, holidays=holid,
+             yearly.seasonality = FALSE, weekly.seasonality = FALSE, 
+             daily.seasonality = FALSE)
+o.future <- make_future_dataframe(o, period=periodo)
+o.forecast <- predict(o, o.future)
+
+previsao_o <- tail(o.forecast[c('ds', 'yhat', 'yhat_lower', 'yhat_upper')], periodo)
+previsao_o[-1] <- round(previsao_o[,-1],4)
+colnames(previsao_o) <- c('Data', 'Previsão', 'Minimo', 'Maximo')
+rownames(previsao_o) <- 1:periodo
+
+Data <- timeSequence(from=as.Date(previsao_o$Data[1]), 
+                     to=as.Date(previsao_o$Data[1])+(periodo+3))[
+                       isWeekday(timeSequence(from=as.Date(previsao_o$Data[1]), 
+                                              to=as.Date(previsao_o$Data[1])+(periodo+3)))]
+previsao_o$Data <- as.Date(Data)
+previsao_o
+
+plot(o, o.forecast)  ### FAIL, consequentemente, para os dados presentes não dará certo.
+
+
+library(ggplot2)
+library(gganimate)
+
+
+x <- matrix(rnorm(200),100,2)
+y <- 0.1*x[,1] + 2*x[,2] + rnorm(100)
+z <- fitted(lm(y ~ x))
+library(aTSA)
+A <- accurate(y,z,2)
+
+ggplot(A, aes(x=x, y=y))+geom_point()+transition_time(z)
