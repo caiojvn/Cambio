@@ -1,2 +1,2 @@
 # Dólar comercial
-Análise preditiva do comportamento do câmbio comercial.
+Estudo do comportamento do câmbio comercial (BRL/USD).
