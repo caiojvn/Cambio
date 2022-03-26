@@ -1,2 +1,2 @@
 # Dólar comercial
-Estudo do comportamento do câmbio comercial (BRL/USD).
+Estudo preditivo do comportamento do câmbio comercial (BRL/USD).
